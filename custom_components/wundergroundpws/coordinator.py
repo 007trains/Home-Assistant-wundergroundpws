@@ -65,7 +65,7 @@ class WundergroundPWSUpdateCoordinator(DataUpdateCoordinator):
     """The WundergroundPWS update coordinator."""
 
     icon_condition_map = ICON_CONDITION_MAP
-
+    _previous_temperature_max = None  # Class variable to store previous temperaturemax value
     def __init__(
             self, hass: HomeAssistant, config: WundergroundPWSUpdateCoordinatorConfig
     ) -> None:
@@ -211,7 +211,19 @@ class WundergroundPWSUpdateCoordinator(DataUpdateCoordinator):
                 FIELD_FORECAST_VALIDTIMEUTC,
             ]:
                 # Those fields exist per-day, rather than per dayPart, so the period is halved
-                return self.data[field][int(period / 2)]
+                temp_value = self.data[field][int(period / 2)]
+
+                if field == FIELD_FORECAST_TEMPERATUREMAX:
+                    if temp_value is None:
+                        # Use previous value if current is None
+                        temp_value = self._previous_temperature_max
+                        _LOGGER.debug("Using previous temperatureMax value.")
+                    else:
+                        # Store current value for future use
+                        self._previous_temperature_max = temp_value
+                        _LOGGER.debug(f"Stored temperatureMax: {temp_value}")
+
+                return temp_value
             return self.data[FIELD_DAYPART][0][field][period]
         except IndexError:
             return None
