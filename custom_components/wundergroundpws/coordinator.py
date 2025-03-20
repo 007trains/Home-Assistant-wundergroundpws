@@ -213,7 +213,7 @@ class WundergroundPWSUpdateCoordinator(DataUpdateCoordinator):
                 # Those fields exist per-day, rather than per dayPart, so the period is halved
                 temp_value = self.data[field][int(period / 2)]
 
-                if field == FIELD_FORECAST_TEMPERATUREMAX:
+                if field == FIELD_FORECAST_TEMPERATUREMAX and period == 0: # Check period is today
                     if temp_value is None:
                         # Use previous value if current is None
                         temp_value = self._previous_temperature_max
