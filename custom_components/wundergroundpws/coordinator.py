@@ -65,7 +65,7 @@ class WundergroundPWSUpdateCoordinator(DataUpdateCoordinator):
     """The WundergroundPWS update coordinator."""
 
     icon_condition_map = ICON_CONDITION_MAP
-    _previous_temperature_max = None  # Class variable to store previous temperaturemax value
+
     def __init__(
             self, hass: HomeAssistant, config: WundergroundPWSUpdateCoordinatorConfig
     ) -> None:
@@ -145,7 +145,7 @@ class WundergroundPWSUpdateCoordinator(DataUpdateCoordinator):
                 self._check_errors(url, result_forecast)
 
             result = {**result_current, **result_forecast}
-
+        
             self.data = result
 
             return result
@@ -200,46 +200,27 @@ class WundergroundPWSUpdateCoordinator(DataUpdateCoordinator):
             # Those fields are unit-less
             return self.data[FIELD_OBSERVATIONS][0][field] or 0
         return self.data[FIELD_OBSERVATIONS][0][self.unit_system][field]
-
-import datetime
-
-def get_forecast(self, field, period=0):
-    try:
-        if field in [
-            FIELD_FORECAST_TEMPERATUREMAX,
-            FIELD_FORECAST_TEMPERATUREMIN,
-            FIELD_FORECAST_CALENDARDAYTEMPERATUREMAX,
-            FIELD_FORECAST_CALENDARDAYTEMPERATUREMIN,
-            FIELD_FORECAST_VALIDTIMEUTC,
-        ]:
-            forecasts = self.data.get("forecasts", {}).get("daily", [])
-            if not forecasts:
-                return None
-
-            if period / 2 >= len(forecasts):
-                return None
-
-            forecast = forecasts[int(period / 2)]
-            temp_value = forecast.get(field)
-
-            if field == FIELD_FORECAST_TEMPERATUREMAX:
-                now_utc = datetime.datetime.now(datetime.timezone.utc)
-                forecast_utc = datetime.datetime.utcfromtimestamp(forecast.get("validTimeUtc", 0))
-                if now_utc.date() == forecast_utc.date(): #check if the dates match.
-                    if temp_value is None:
-                        temp_value = self._previous_temperature_max
-                        _LOGGER.debug("Using previous temperatureMax value.")
-                    else:
-                        self._previous_temperature_max = temp_value
-                        _LOGGER.debug(f"Stored temperatureMax: {temp_value}")
-                else:
-                    self._previous_temperature_max = None #reset the previous value if the date does not match.
-
-            return temp_value
-        return self.data[FIELD_DAYPART][0][field][period]
-    except IndexError:
-        return None
-
+    
+    def get_forecast(self, field, period=0):
+        try:
+            if field in [
+                FIELD_FORECAST_TEMPERATUREMAX,
+                FIELD_FORECAST_TEMPERATUREMIN,
+                FIELD_FORECAST_CALENDARDAYTEMPERATUREMAX,
+                FIELD_FORECAST_CALENDARDAYTEMPERATUREMIN,
+                FIELD_FORECAST_VALIDTIMEUTC,
+            ]:
+                # Those fields exist per-day, rather than per dayPart, so the period is halved
+                value = self.data[field][int(period / 2)]
+                _LOGGER.debug(f'get_forecast: {field}, period: {period}, value: {value}') #Add this line.
+                return value
+            value = self.data[FIELD_DAYPART][0][field][period]
+            _LOGGER.debug(f'get_forecast: {field}, period: {period}, value: {value}') #Add this line.
+            return value
+        except IndexError:
+            _LOGGER.warning(f'get_forecast: IndexError for {field}, period: {period}') #add this line.
+            return None
+    
     @classmethod
     def _iconcode_to_condition(cls, icon_code):
         for condition, iconcodes in cls.icon_condition_map.items():
