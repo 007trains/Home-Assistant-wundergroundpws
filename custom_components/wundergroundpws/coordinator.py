@@ -65,7 +65,7 @@ class WundergroundPWSUpdateCoordinator(DataUpdateCoordinator):
     """The WundergroundPWS update coordinator."""
 
     icon_condition_map = ICON_CONDITION_MAP
-
+    _previous_temperature_max = None  # Class variable to store previous temperaturemax value
     def __init__(
             self, hass: HomeAssistant, config: WundergroundPWSUpdateCoordinatorConfig
     ) -> None:
