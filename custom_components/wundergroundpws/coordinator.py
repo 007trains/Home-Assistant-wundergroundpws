@@ -201,32 +201,44 @@ class WundergroundPWSUpdateCoordinator(DataUpdateCoordinator):
             return self.data[FIELD_OBSERVATIONS][0][field] or 0
         return self.data[FIELD_OBSERVATIONS][0][self.unit_system][field]
 
-    def get_forecast(self, field, period=0):
-        try:
-            if field in [
-                FIELD_FORECAST_TEMPERATUREMAX,
-                FIELD_FORECAST_TEMPERATUREMIN,
-                FIELD_FORECAST_CALENDARDAYTEMPERATUREMAX,
-                FIELD_FORECAST_CALENDARDAYTEMPERATUREMIN,
-                FIELD_FORECAST_VALIDTIMEUTC,
-            ]:
-                # Those fields exist per-day, rather than per dayPart, so the period is halved
-                temp_value = self.data[field][int(period / 2)]
+import datetime
 
-                if field == FIELD_FORECAST_TEMPERATUREMAX and period == 0: # Check period is today
+def get_forecast(self, field, period=0):
+    try:
+        if field in [
+            FIELD_FORECAST_TEMPERATUREMAX,
+            FIELD_FORECAST_TEMPERATUREMIN,
+            FIELD_FORECAST_CALENDARDAYTEMPERATUREMAX,
+            FIELD_FORECAST_CALENDARDAYTEMPERATUREMIN,
+            FIELD_FORECAST_VALIDTIMEUTC,
+        ]:
+            forecasts = self.data.get("forecasts", {}).get("daily", [])
+            if not forecasts:
+                return None
+
+            if period / 2 >= len(forecasts):
+                return None
+
+            forecast = forecasts[int(period / 2)]
+            temp_value = forecast.get(field)
+
+            if field == FIELD_FORECAST_TEMPERATUREMAX:
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                forecast_utc = datetime.datetime.utcfromtimestamp(forecast.get("validTimeUtc", 0))
+                if now_utc.date() == forecast_utc.date(): #check if the dates match.
                     if temp_value is None:
-                        # Use previous value if current is None
                         temp_value = self._previous_temperature_max
                         _LOGGER.debug("Using previous temperatureMax value.")
                     else:
-                        # Store current value for future use
                         self._previous_temperature_max = temp_value
                         _LOGGER.debug(f"Stored temperatureMax: {temp_value}")
+                else:
+                    self._previous_temperature_max = None #reset the previous value if the date does not match.
 
-                return temp_value
-            return self.data[FIELD_DAYPART][0][field][period]
-        except IndexError:
-            return None
+            return temp_value
+        return self.data[FIELD_DAYPART][0][field][period]
+    except IndexError:
+        return None
 
     @classmethod
     def _iconcode_to_condition(cls, icon_code):
